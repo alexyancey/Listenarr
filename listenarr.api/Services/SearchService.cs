@@ -3540,10 +3540,17 @@ namespace Listenarr.Api.Services
                     doc = System.Xml.Linq.XDocument.Load(reader);
                 }
 
+                // Log the root element for debugging
+                _logger.LogDebug("XML Root element: {RootName}, Children: {Children}",
+                    doc.Root?.Name.LocalName ?? "null",
+                    string.Join(", ", doc.Root?.Elements().Select(e => e.Name.LocalName) ?? Array.Empty<string>()));
+
                 var channel = doc.Root?.Element("channel");
                 if (channel == null)
                 {
-                    _logger.LogWarning("Invalid Torznab response: no channel element");
+                    _logger.LogWarning("Invalid Torznab response: no channel element. Root: {Root}, XML preview: {Preview}",
+                        doc.Root?.Name.LocalName ?? "null",
+                        xmlContent.Length > 200 ? xmlContent.Substring(0, 200) : xmlContent);
                     return results;
                 }
 
@@ -3573,9 +3580,16 @@ namespace Listenarr.Api.Services
                             result.PublishedDate = DateTime.UtcNow;
                         }
 
-                        // Parse Torznab/Newznab attributes
+                        // Parse Torznab/Newznab attributes - check both namespaces
                         var torznabNs = System.Xml.Linq.XNamespace.Get("http://torznab.com/schemas/2015/feed");
+                        var newznabNs = System.Xml.Linq.XNamespace.Get("http://www.newznab.com/DTD/2010/feeds/attributes/");
                         var attributes = item.Elements(torznabNs + "attr").ToList();
+
+                        // If no torznab attributes found, try newznab namespace
+                        if (!attributes.Any())
+                        {
+                            attributes = item.Elements(newznabNs + "attr").ToList();
+                        }
 
                         foreach (var attr in attributes)
                         {
