@@ -293,7 +293,7 @@ import { ref, computed, watch } from 'vue'
 import type { DownloadClientConfiguration, DownloadClientSettings } from '@/types'
 import { useToast } from '@/services/toastService'
 import { useConfigurationStore } from '@/stores/configuration'
-import { getRemotePathMappings } from '@/services/api'
+import { getRemotePathMappings, testDownloadClient } from '@/services/api'
 import type { RemotePathMapping } from '@/types'
 
 interface Props {
@@ -362,7 +362,7 @@ const requiresAuth = computed(() => {
 })
 
 const requiresApiKey = computed(() => {
-  return formData.value.type === 'sabnzbd' || formData.value.type === 'nzbget'
+  return formData.value.type === 'sabnzbd'
 })
 
 const getHostPlaceholder = () => {
@@ -446,12 +446,42 @@ const closeModal = () => {
 const testConnection = async () => {
   testing.value = true
   try {
-    // TODO: Implement actual test endpoint
-    await new Promise(resolve => setTimeout(resolve, 1000))
-    toast.success('Test successful', 'Connection test successful')
+    // Build the client configuration for testing
+    const clientConfig: DownloadClientConfiguration = {
+      id: props.editingClient?.id || '',
+      name: formData.value.name,
+      type: formData.value.type,
+      host: formData.value.host,
+      port: formData.value.port,
+      username: formData.value.username || '',
+      password: formData.value.password || '',
+      downloadPath: formData.value.downloadPath || '',
+      useSSL: formData.value.useSSL,
+      isEnabled: formData.value.isEnabled,
+      settings: {
+        ...(formData.value.apiKey && { apiKey: formData.value.apiKey }),
+        ...(formData.value.category && { category: formData.value.category }),
+        ...(formData.value.tags && { tags: formData.value.tags }),
+        recentPriority: formData.value.recentPriority,
+        olderPriority: formData.value.olderPriority,
+        removeCompleted: formData.value.removeCompleted,
+        removeFailed: formData.value.removeFailed,
+        initialState: formData.value.initialState,
+        sequentialOrder: formData.value.sequentialOrder,
+        firstAndLastFirst: formData.value.firstAndLastFirst,
+        contentLayout: formData.value.contentLayout
+      }
+    }
+
+    const result = await testDownloadClient(clientConfig)
+    if (result.success) {
+      toast.success('Test successful', result.message || 'Connection test successful')
+    } else {
+      toast.error('Test failed', result.message || 'Connection test failed')
+    }
   } catch (error) {
     console.error('Failed to test download client:', error)
-    toast.error('Test failed', 'Failed to test download client connection')
+    toast.error('Test failed', `Failed to test download client: ${error instanceof Error ? error.message : 'Unknown error'}`)
   } finally {
     testing.value = false
   }
