@@ -186,7 +186,15 @@ builder.Services.AddScoped<IAudiobookRepository, AudiobookRepository>();
 builder.Services.AddScoped<IConfigurationService, ConfigurationService>();
 // Startup config: read config.json (optional) and expose via IStartupConfigService
 builder.Services.AddSingleton<IStartupConfigService, StartupConfigService>();
-builder.Services.AddScoped<ISearchService, SearchService>();
+builder.Services.AddHttpClient<ISearchService, SearchService>()
+    .ConfigureHttpClient(client =>
+    {
+        client.DefaultRequestHeaders.UserAgent.ParseAdd("Listenarr/1.0 (Audiobook Manager)");
+    })
+    .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler()
+    {
+        AutomaticDecompression = System.Net.DecompressionMethods.GZip | System.Net.DecompressionMethods.Deflate
+    });
 builder.Services.AddScoped<IMetadataService, MetadataService>();
 builder.Services.AddScoped<IAudioFileService, AudioFileService>();
 // Metadata extraction limiter to bound concurrent ffprobe calls
